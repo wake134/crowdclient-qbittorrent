@@ -1,0 +1,8 @@
+archive/
+crowdclient-sabnzbd*
+test.py
+config.json
+crowdclient-config.json
+sabnzbd-postprocessor
+test-build
+.idea/

@@ -1,0 +1,422 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+// Version information - set at build time
+var (
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildDate = "unknown"
+)
+
+// Global variable to track update availability
+var (
+	updateAvailable = false
+	latestVersion   = ""
+	updateCheckDone = false
+)
+
+// getCleanVersion returns a clean version string for User-Agent
+// Removes git suffixes like -dirty, -dev, commit hashes, etc.
+func getCleanVersion() string {
+	version := Version
+
+	// Remove -dev suffix
+	if strings.HasSuffix(version, "-dev") {
+		version = strings.TrimSuffix(version, "-dev")
+	}
+
+	// Remove -dirty suffix (from git describe)
+	if strings.HasSuffix(version, "-dirty") {
+		version = strings.TrimSuffix(version, "-dirty")
+	}
+
+	// Remove git commit hash (format: v1.0.0-1-g1234567)
+	// Split on dash and take only the version part
+	parts := strings.Split(version, "-")
+	if len(parts) > 0 {
+		version = parts[0]
+	}
+
+	// Remove 'v' prefix if present
+	if strings.HasPrefix(version, "v") {
+		version = strings.TrimPrefix(version, "v")
+	}
+
+	// Fallback if version is empty or invalid
+	if version == "" || version == "dev" || version == "unknown" {
+		version = "1.0.0"
+	}
+
+	return version
+}
+
+// getUserAgent returns the User-Agent string for API requests
+func getUserAgent() string {
+	return fmt.Sprintf("crowdclient-SABnzbd/%s", getCleanVersion())
+}
+
+func main() {
+	log.SetFlags(0)
+
+	// Check for version flag
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Printf("CrowdNFO SABnzbd Post-Processor %s\n", Version)
+		fmt.Printf("Git Commit: %s\n", GitCommit)
+		fmt.Printf("Build Date: %s\n", BuildDate)
+		return
+	}
+
+	if len(os.Args) < 8 {
+		log.Fatal("Insufficient arguments. Expected 7 arguments from SABnzbd.")
+	}
+
+	// Parse SABnzbd arguments
+	finalDir := os.Args[1]
+	// originalNZB := os.Args[2]
+	cleanJobName := os.Args[3]
+	// indexerID := os.Args[4]
+	sabnzbdCategory := os.Args[5]
+	// group := os.Args[6]
+	status := os.Args[7]
+
+	// Get SABnzbd API credentials from environment
+	sabApiUrl := os.Getenv("SAB_API_URL")
+	sabApiKey := os.Getenv("SAB_API_KEY")
+
+	// Check SABnzbd deobfuscate_final_filenames setting
+	if err := checkSABnzbdConfig(sabApiUrl, sabApiKey); err != nil {
+		log.Fatal("❌ ", err)
+	}
+
+	// Only process if status is OK (0)
+	if status != "0" {
+		log.Printf("Job failed with status %s, skipping processing", status)
+		return
+	}
+
+	// Load configuration first
+	config, err := loadConfig()
+	if err != nil {
+		log.Fatal("❌ Failed to load configuration: ", err)
+	}
+
+	// Check UmlautAdaptarr for title changes
+	originalTitle, err := checkUmlautadaptarr(config, cleanJobName)
+	// Use original title if Umlautadaptarr made changes
+	if originalTitle != "" {
+		log.Printf("ℹ️ Using original title from UmlautAdaptarr: %s", originalTitle)
+		cleanJobName = originalTitle
+	}
+
+	// Create archive directory
+	archiveDir := filepath.Join(getCurrentDir(), "archive", cleanJobName)
+	if err := os.MkdirAll(archiveDir, 0755); err != nil {
+		log.Fatal("Failed to create archive directory: ", err)
+	}
+
+	// Check if this is a season pack
+	if isSeasonPack(cleanJobName) || isSeasonPackFallback(finalDir) {
+		if isSeasonPack(cleanJobName) {
+			log.Printf("📦 Detected season pack via name pattern: %s", cleanJobName)
+		} else {
+			log.Printf("📦 Detected season pack via file count (≥3 episodes): %s", cleanJobName)
+		}
+		if err := processSeasonPack(config, finalDir, cleanJobName, sabnzbdCategory, archiveDir); err != nil {
+			log.Printf("❌ Season pack processing failed: %v", err)
+			return
+		}
+		log.Printf("✅ Season pack processing completed")
+		return
+	}
+
+	// Try to initialize MediaInfo (optional)
+	mediaInfoPath, hasMediaInfo := initializeMediaInfo(config.MediaInfoPath)
+	if !hasMediaInfo {
+		log.Println("ℹ️ MediaInfo not available - some features may be limited")
+	}
+
+	// Try to find media file for MediaInfo generation
+	var mediaFile string
+	var hash string
+	var mediaInfoJSON []byte
+
+	// First try to find video file
+	videoFile, err := findBiggestFile(finalDir)
+	if err == nil && videoFile != "" {
+		mediaFile = videoFile
+	} else {
+		// If no video file, try to find audio file (for music/audiobooks)
+		audioFile, err := findFirstAudioFile(finalDir)
+		if err == nil && audioFile != "" {
+			mediaFile = audioFile
+		}
+	}
+
+	// Generate MediaInfo and hash if media file found
+	if mediaFile != "" && hasMediaInfo {
+		log.Printf("⏳ Processing media file: %s", filepath.Base(mediaFile))
+
+		// Generate MediaInfo JSON only for non-hash-only files
+		if !isHashOnlyFile(mediaFile) {
+			mediaInfoJSON, err = generateMediaInfoJSON(mediaFile, mediaInfoPath)
+			if err != nil {
+				log.Printf("⚠️ Failed to generate MediaInfo: %v", err)
+			}
+		}
+	} else if mediaFile != "" && !hasMediaInfo {
+		log.Println("ℹ️ Skipping MediaInfo generation - MediaInfo not available")
+	}
+
+	// Calculate hash for any file found (media or ISO/IMG)
+	if mediaFile != "" {
+		shouldHash, err := shouldCalculateHash(config, mediaFile)
+		if err != nil {
+			log.Printf("⚠️ Failed to check file size for hash calculation: %v", err)
+		} else if shouldHash {
+			hash, err = calculateSHA256(mediaFile)
+			if err != nil {
+				log.Printf("⚠️ Failed to calculate SHA256: %v", err)
+			}
+		}
+	}
+
+	// Find NFO file (independent of media files)
+	nfoFile, err := findNFOFile(finalDir)
+	if err != nil {
+		log.Printf("ℹ️ No NFO file found")
+		nfoFile = "" // Set empty string for upload function
+	}
+
+	// Upload to CrowdNFO API (works with or without media files/NFO)
+	if err := uploadToCrowdNFO(config, cleanJobName, sabnzbdCategory, hash, finalDir, mediaInfoJSON, nfoFile, archiveDir); err != nil {
+		errStr := err.Error()
+		if strings.HasPrefix(errStr, "partial_failure:") {
+			log.Printf("⚠️ Upload completed with partial success: %s", strings.TrimPrefix(errStr, "partial_failure:"))
+		} else if strings.HasPrefix(errStr, "total_failure:") {
+			log.Printf("❌ Upload process failed: %s", strings.TrimPrefix(errStr, "total_failure:"))
+		} else {
+			log.Printf("❌ Upload process failed: %v", err)
+		}
+	}
+
+	log.Printf("✅ All processing completed successfully")
+
+	// Check and display update notification if available
+	displayUpdateNotification()
+
+	// Execute post-processing commands (always run, regardless of upload success)
+	executePostProcessing(config, sabnzbdCategory)
+}
+
+// displayUpdateNotification shows update information if available
+func displayUpdateNotification() {
+	if !updateCheckDone {
+		return
+	}
+
+	if updateAvailable {
+		log.Printf("🔔 Update available!")
+		if latestVersion != "" {
+			currentVersion := getCleanVersion()
+			log.Printf("   Current version: %s", currentVersion)
+			log.Printf("   Latest version:  %s", latestVersion)
+		}
+		log.Printf("   Visit https://github.com/your-repo/releases for the latest version")
+	}
+}
+
+// isSeasonPack determines if the given job name corresponds to a season pack
+func isSeasonPack(jobName string) bool {
+	// First check for traditional season patterns (S\d{2,4}) but NOT episodes (SxxExx)
+	seasonPattern := regexp.MustCompile(`(?i)\bS\d{2,4}\b`)
+	episodePattern := regexp.MustCompile(`(?i)\bS\d{2,4}E\d{2,4}\b`)
+
+	if seasonPattern.MatchString(jobName) && !episodePattern.MatchString(jobName) {
+		return true
+	}
+
+	// Check for ISO date format years (S2024, S2023, etc.)
+	isoYearPattern := regexp.MustCompile(`(?i)\bS(20\d{2})\b`)
+	if isoYearPattern.MatchString(jobName) {
+		return true
+	}
+
+	return false
+}
+
+// isSeasonPackFallback checks if a directory should be treated as season pack based on video file count
+func isSeasonPackFallback(finalDir string) bool {
+	videoFiles, err := findAllVideoFiles(finalDir)
+	if err != nil {
+		return false
+	}
+
+	// If we find 3 or more video files, treat as season pack
+	return len(videoFiles) >= 3
+}
+
+// processSeasonPack handles the processing of season packs
+func processSeasonPack(config *Config, finalDir, cleanJobName, sabnzbdCategory, archiveDir string) error {
+	// Check if this is actually a season pack by counting video files
+	if !isSeasonPackFallback(finalDir) {
+		log.Printf("ℹ️ Less than 3 video files found, processing as single release")
+		return nil
+	}
+
+	// Try to initialize MediaInfo (optional)
+	mediaInfoPath, hasMediaInfo := initializeMediaInfo(config.MediaInfoPath)
+	if !hasMediaInfo {
+		log.Println("ℹ️ MediaInfo not available - some features may be limited")
+	}
+
+	// Find all video files in the season pack
+	videoFiles, err := findAllVideoFiles(finalDir)
+	if err != nil {
+		return err
+	}
+
+	if len(videoFiles) == 0 {
+		log.Println("No video files found in season pack")
+		return nil
+	}
+
+	log.Printf("🔍 Found %d video files in season pack", len(videoFiles))
+
+	// Extract episode information for each video file
+	episodes := make([]EpisodeInfo, 0)
+	generalNFO := findGeneralNFO(finalDir)
+
+	for _, videoFile := range videoFiles {
+		episodeInfo := extractEpisodeInfo(videoFile, cleanJobName, generalNFO)
+		if episodeInfo.ReleaseName != "" { // Only process valid episodes
+			episodes = append(episodes, episodeInfo)
+		}
+	}
+
+	if len(episodes) == 0 {
+		log.Println("No valid episodes found in season pack")
+		return nil
+	}
+
+	log.Printf("📺 Processing %d episodes", len(episodes))
+
+	// Process each episode
+	successCount := 0
+	for i, episode := range episodes {
+		log.Printf("📄 Processing episode %d/%d: %s", i+1, len(episodes), episode.ReleaseName)
+
+		// Calculate SHA256 for this episode (check file size limit first)
+		var hash string
+		shouldHash, err := shouldCalculateHash(config, episode.VideoFile.Path)
+		if err != nil {
+			log.Printf("⚠️ Failed to check file size for hash calculation: %v", err)
+		} else if shouldHash {
+			hash, err = calculateSHA256(episode.VideoFile.Path)
+			if err != nil {
+				log.Printf("❌ Failed to calculate SHA256 for %s: %v", episode.ReleaseName, err)
+				continue
+			}
+		}
+
+		// Generate MediaInfo JSON for this episode
+		var mediaInfoJSON []byte
+		if hasMediaInfo {
+			mediaInfoJSON, err = generateMediaInfoJSON(episode.VideoFile.Path, mediaInfoPath)
+			if err != nil {
+				log.Printf("⚠️ Failed to generate MediaInfo for %s: %v", episode.ReleaseName, err)
+			}
+		}
+
+		// Upload this episode to CrowdNFO API with file list
+		err = uploadEpisodeToCrowdNFO(config, episode, sabnzbdCategory, hash, mediaInfoJSON, archiveDir)
+		if err != nil {
+			// Don't log additional error message - the upload function already logged the details
+			continue
+		}
+
+		successCount++
+	}
+
+	log.Printf("✅ Season pack completed: %d/%d episodes successful", successCount, len(episodes))
+
+	// Execute post-processing commands for season packs
+	executePostProcessing(config, sabnzbdCategory)
+
+	return nil
+}
+
+// executePostProcessing runs post-processing commands based on configuration
+func executePostProcessing(config *Config, sabnzbdCategory string) {
+	if config.PostProcessing.Global.Enabled {
+		runPostProcessCommand("global", config.PostProcessing.Global)
+	}
+
+	// Check for category-specific post-processing
+	if config.PostProcessing.Categories != nil {
+		// First try the exact SABnzbd category
+		if cmd, exists := config.PostProcessing.Categories[sabnzbdCategory]; exists && cmd.Enabled {
+			runPostProcessCommand(fmt.Sprintf("category '%s'", sabnzbdCategory), cmd)
+			return
+		}
+
+		// Try lowercase version
+		if cmd, exists := config.PostProcessing.Categories[strings.ToLower(sabnzbdCategory)]; exists && cmd.Enabled {
+			runPostProcessCommand(fmt.Sprintf("category '%s'", strings.ToLower(sabnzbdCategory)), cmd)
+			return
+		}
+	}
+}
+
+// runPostProcessCommand executes a post-processing command with all original arguments and environment
+func runPostProcessCommand(configType string, cmd PostProcessCommand) {
+	if cmd.Command == "" {
+		return
+	}
+
+	log.Printf("🔧 Running %s post-processing: %s", configType, cmd.Command)
+
+	// Build command arguments - start with original SABnzbd arguments
+	args := make([]string, 0)
+
+	// Add original SABnzbd arguments (skip program name at index 0)
+	if len(os.Args) > 1 {
+		args = append(args, os.Args[1:]...)
+	}
+
+	// Add additional arguments from config if specified
+	if len(cmd.Arguments) > 0 {
+		args = append(args, cmd.Arguments...)
+	}
+
+	// Execute the command
+	execCmd := exec.Command(cmd.Command, args...)
+
+	// Pass through all environment variables
+	execCmd.Env = os.Environ()
+
+	// Set working directory to current directory
+	execCmd.Dir = getCurrentDir()
+
+	// Capture output
+	output, err := execCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("❌ Post-processing command failed: %v", err)
+		if len(output) > 0 {
+			log.Printf("   Output: %s", string(output))
+		}
+	} else {
+		log.Printf("✅ Post-processing command completed successfully")
+		if len(output) > 0 {
+			log.Printf("   Output: %s", string(output))
+		}
+	}
+}
