@@ -72,7 +72,7 @@ func findMediaInfoBinary(configPath string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("MediaInfo binary not found. Please install MediaInfo or specify the path in config.json")
+	return "", fmt.Errorf("MediaInfo binary not found. Please install MediaInfo or specify the path in crowdclient-config.json")
 }
 
 // downloadMediaInfoForWindows downloads MediaInfo CLI for Windows

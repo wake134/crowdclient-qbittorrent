@@ -18,7 +18,7 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 - 🎯 **Episode-Splitting**: Jede Episode wird als separates Release verarbeitet
 - 📂 **Flexible Strukturen**: Unterstützt sowohl Hauptverzeichnis- als auch Unterverzeichnis-Layouts
 - 📅 **ISO-Datumsformat**: Support für `yyyy-mm-dd` Episoden-Formate
-- 🎯 **Intelligente File Lists**: Nur relevante Dateien pro Episode (falls nicht in separaten Ordnern)
+- 📄 **Intelligente File Lists**: Nur relevante Dateien pro Episode (falls nicht in separaten Ordnern)
 
 ### Erweiterte Features
 - 🔄 **UmlautAdaptarr Integration**: Abfrage von originalem Releasenamen bei durch den UA umbenannten Releases
@@ -39,10 +39,10 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 2. Mache sie ausführbar: `chmod +x crowdclient-sabnzbd-linux-amd64` (Linux/Mac)
 3. CrowdClient in SABnzbd den gewünschten Kategorien zuordnen
 4. Führe einmalig aus: `./crowdclient-sabnzbd test test test test test test 0` (alternativ beliebige NZB mit SABnzbd laden)
-5. Dies erstellt eine `config.json` mit Standardeinstellungen
+5. Dies erstellt eine `crowdclient-config.json` mit Standardeinstellungen
 
 ### 3. Basis-Konfiguration
-Bearbeite die `config.json`:
+Bearbeite die `crowdclient-config.json`:
 
 ```json
 {
@@ -74,12 +74,12 @@ Bearbeite die `config.json`:
   }
 }
 ```
-Damit das Skript funktioniert, musst du deinen CrowdNFO API-Key in der `config.json` eintragen. Diesen findest du in deinem [Profil](https://crowdnfo.net/profile/details).
+Damit das Skript funktioniert, musst du deinen CrowdNFO API-Key in der `crowdclient-config.json` eintragen. Diesen findest du in deinem [Profil](https://crowdnfo.net/profile/details).
 
 ## 🔧 Erweiterte Konfiguration
 
 ### UmlautAdaptarr Integration
-Falls der UmlautAdaptarr verwendet wird, sollte unbedingt der UmlautAdaptarr in der config.json des CrowdClients aktiviert werden, da sonst die falschen (geänderten) Releasenamen verarbeitet werden.
+Falls der UmlautAdaptarr verwendet wird, sollte unbedingt der UmlautAdaptarr in der crowdclient-config.json des CrowdClients aktiviert werden, da sonst die falschen (geänderten) Releasenamen verarbeitet werden.
 Dazu `"enabled"` auf `true` setzen und die `base_url` auf den korrekten Host konfigurieren.
 ```json
 {
@@ -153,7 +153,7 @@ Bei Docker bitte das korrekte Pfad-Mapping beachten (nicht die Pfade vom Host ve
 ### Häufige Probleme
 
 **1. MediaInfo nicht gefunden**
-- Stelle sicher, dass du MediaInfo-CLI installiert hast und der Pfad in der `config.json` korrekt gesetzt ist, insofern es sich nicht um das Standard-Installationsverzeichnis handelt.
+- Stelle sicher, dass du MediaInfo-CLI installiert hast und der Pfad in der `crowdclient-config.json` korrekt gesetzt ist, insofern es sich nicht um das Standard-Installationsverzeichnis handelt.
 Alternativ muss MediaInfo im PATH vorhanden sein oder im gleichen Verzeichnis wie der CrowdClient liegen.
 
 **2. **
@@ -165,7 +165,7 @@ Alternativ muss MediaInfo im PATH vorhanden sein oder im gleichen Verzeichnis wi
 fehlt die Umgebungsvariable `SETTINGS__EnableChangedTitleCache=true` in deiner UmlautAdaptarr-Installation. Du musst diese Variable setzen, damit die API korrekt funktioniert.
 
 - Wenn die Fehlermeldung `❌ Umlautadaptarr check failed: failed to connect to Umlautadaptarr [...] connection refused` auftritt,
-ist der UmlautAdaptarr nicht erreichbar. Überprüfe die URL und den Port in der `config.json` und stelle sicher, dass der Dienst läuft. Beachte auch die oben genannten Hinweise für Docker.
+ist der UmlautAdaptarr nicht erreichbar. Überprüfe die URL und den Port in der `crowdclient-config.json` und stelle sicher, dass der Dienst läuft. Beachte auch die oben genannten Hinweise für Docker.
 
 
 **4. NFO/MediaInfo/File List Upload failed**
@@ -201,8 +201,4 @@ auftritt, bedeutet dies, dass bereits eine NFO oder MediaInfo-Datei für dieses 
 
 ## 🤝 Support
 
-Bei Problemen oder Feature-Requests erstelle ein Issue im Repository oder kontaktiere den CrowdNFO-Support.
-
-## 📄 Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz.
+Bei Problemen oder Feature-Requests erstelle ein Issue im Repository oder im #crowdnfo Channel bei Discord schreiben.

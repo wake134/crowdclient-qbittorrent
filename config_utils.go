@@ -54,7 +54,7 @@ var categoryRegexPatterns = []struct {
 }
 
 func loadConfig() (*Config, error) {
-	configPath := filepath.Join(getCurrentDir(), "config.json")
+	configPath := filepath.Join(getCurrentDir(), "crowdclient-config.json")
 
 	// Create default config if it doesn't exist
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
