@@ -65,10 +65,10 @@ func loadConfig() (*Config, error) {
 			MaxHashFileSize: "", // Optional - no limit by default, use "0" to disable, or "5GB"/"800MB" to set limit
 			CategoryMappings: map[string][]string{
 				"Movies":     []string{"movies", "movie", "radarr", "film"},
-				"TV":         []string{"tv", "television", "sonarr", "series", "shows", "serien"},
+				"TV":         []string{"tv", "television", "sonarr", "series", "shows", "serien", "anime"},
 				"Games":      []string{"games", "gaming", "pc-games"},
 				"Software":   []string{"software", "apps", "programs"},
-				"Music":      []string{"music", "audio", "mp3"},
+				"Music":      []string{"music", "audio", "mp3", "flac"},
 				"Audiobooks": []string{"audiobooks", "hoerbuch", "abook"},
 				"Books":      []string{"books", "ebooks", "epub"},
 				"Other":      []string{"other", "misc"},
