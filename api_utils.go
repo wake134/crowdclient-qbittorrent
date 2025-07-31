@@ -260,10 +260,10 @@ func uploadFile(config *Config, releaseName, fileType, originalFileName string, 
 		return fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	log.Printf("   Body Size: %d bytes", len(body))
-	if len(body) > 0 && len(body) < 1000 { // Only log small response bodies
-		log.Printf("   Body: %s", string(body))
-	}
+	//log.Printf("   Body Size: %d bytes", len(body))
+	//if len(body) > 0 && len(body) < 1000 { // Only log small response bodies
+	//	log.Printf("   Body: %s", string(body))
+	//}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(body))
