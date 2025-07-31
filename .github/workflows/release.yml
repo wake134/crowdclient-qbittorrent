@@ -1,0 +1,105 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v1.0.0, v1.2.3, etc.
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating releases
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch full history for git describe
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Get version info
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "IS_RELEASE=true" >> $GITHUB_OUTPUT
+        else
+          # Use git describe for non-tag builds
+          VERSION=$(git describe --tags --always --dirty)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+        fi
+
+        # Get commit hash and build date
+        COMMIT=$(git rev-parse --short HEAD)
+        BUILD_DATE=$(date -u '+%Y-%m-%d_%H:%M:%S')
+
+        echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
+        echo "BUILD_DATE=$BUILD_DATE" >> $GITHUB_OUTPUT
+
+        echo "Building version: $VERSION"
+        echo "Commit: $COMMIT"
+        echo "Build date: $BUILD_DATE"
+
+    - name: Build binaries
+      run: |
+        # Create build directory
+        mkdir -p dist
+
+        # Build flags with version information
+        LDFLAGS="-s -w -X main.Version=${{ steps.version.outputs.VERSION }} -X main.GitCommit=${{ steps.version.outputs.COMMIT }} -X main.BuildDate=${{ steps.version.outputs.BUILD_DATE }}"
+
+        # Build for multiple platforms
+        echo "Building for Linux AMD64..."
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-sabnzbd-linux-amd64 .
+
+        echo "Building for Linux ARM64..."
+        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-sabnzbd-linux-arm64 .
+
+        echo "Building for Windows AMD64..."
+        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-sabnzbd-windows-amd64.exe .
+
+        echo "Building for macOS AMD64..."
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-sabnzbd-darwin-amd64 .
+
+        echo "Building for macOS ARM64..."
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-sabnzbd-darwin-arm64 .
+
+    - name: Create release notes
+      run: |
+        cat > release_notes.md << 'EOF'
+        ### Build Information
+        - **Version**: ${{ steps.version.outputs.VERSION }}
+        - **Commit**: ${{ steps.version.outputs.COMMIT }}
+        - **Build Date**: ${{ steps.version.outputs.BUILD_DATE }}
+
+    - name: Create Release
+      if: steps.version.outputs.IS_RELEASE == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload artifacts (for non-release builds)
+      if: steps.version.outputs.IS_RELEASE == 'false'
+      uses: actions/upload-artifact@v3
+      with:
+        name: crowdclient-sabnzbd-${{ steps.version.outputs.VERSION }}
+        path: |
+          dist/*
+          release_notes.md
+        retention-days: 30
