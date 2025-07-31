@@ -85,6 +85,7 @@ jobs:
       if: steps.version.outputs.IS_RELEASE == 'true'
       uses: softprops/action-gh-release@v1
       with:
+        name: crowdclient-sabnzbd-${{ steps.version.outputs.VERSION }}
         files: |
           dist/*
         body_path: release_notes.md
