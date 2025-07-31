@@ -148,10 +148,12 @@ Führe zusätzliche Scripts nach CrowdNFO aus:
       "command": "/path/to/script.sh",
       "arguments": ["--custom", "arg"]
     },
-    "movies": {
-      "enabled": true,
-      "command": "/path/to/movie-script.sh",
-      "arguments": []
+    "categories": {
+      "movies": {
+        "enabled": true,
+        "command": "/path/to/movie-script.sh",
+        "arguments": []
+      }
     }
   }
 }
