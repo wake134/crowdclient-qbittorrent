@@ -96,7 +96,7 @@ jobs:
 
     - name: Upload artifacts (for non-release builds)
       if: steps.version.outputs.IS_RELEASE == 'false'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: crowdclient-sabnzbd-${{ steps.version.outputs.VERSION }}
         path: |
