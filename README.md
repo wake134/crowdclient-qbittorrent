@@ -11,11 +11,11 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 - 📋 **File Lists**: Automatische Erstellung und Upload von kompletten Dateilisten
 - 🏷️ **Kategorie-Mapping**: Zuordnung via in der Config definierten Mappings sowie Regexes als Fallback
 - 📊 **Hash-Berechnung**: SHA256-Hashes mit konfigurierbaren Größenlimits
-- 📁 **Archivierung**: Speichert alle hochgeladenen Dateien lokal
+- 📁 **Archivierung**: Speichert alle hochgeladenen Dateien lokal in einem `archive` Unterordner (lässt sich in Zukunft auch deaktivieren)
 
 ### Staffelpack-Unterstützung
 - 📺 **Automatische Erkennung**: Erkennt Staffelpacks über den Dateinamen und die Anzahl der Episoden
-- 🎯 **Episode-Splitting**: Jede Episode wird als separates Release verarbeitet
+- ✂️ **Episoden-Splitting**: Jede Episode wird als separates Release verarbeitet
 - 📂 **Flexible Strukturen**: Unterstützt sowohl Hauptverzeichnis- als auch Unterverzeichnis-Layouts
 - 📅 **ISO-Datumsformat**: Support für `yyyy-mm-dd` Episoden-Formate
 - 📄 **Intelligente File Lists**: Nur relevante Dateien pro Episode (falls nicht in separaten Ordnern)
@@ -31,17 +31,30 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
   - **Ubuntu/Debian**: `sudo apt-get install mediainfo`
   - **macOS**: `brew install mediainfo`
   - **Windows**: Download von MediaInfo-CLI (Portable, x64) ins Verzeichnis vom CrowdClient erfolgt automatisch, wenn keine Installation gefunden wurde.
+  - **Docker-Mod**: Wird automatisch installiert
 
 ## 📦 Installation & Einrichtung
 
-### 1. Download & Setup
+### Download & Setup (manuell)
 1. Lade die entsprechende Binärdatei für dein System herunter und kopiere sie in dein SABnzbd Skript-Verzeichnis
 2. Mache sie ausführbar: `chmod +x crowdclient-sabnzbd-linux-amd64` (Linux/Mac)
-3. CrowdClient in SABnzbd den gewünschten Kategorien zuordnen
-4. Führe einmalig aus: `./crowdclient-sabnzbd test test test test test test 0` (alternativ beliebige NZB mit SABnzbd laden)
+3. CrowdClient in SABnzbd den gewünschten Kategorien zuordnen (ggf. muss vorher noch unter Settings > Folders das Skript-Verzeichnis festgelegt werden)
+4. Führe einmalig aus: `./crowdclient-sabnzbd 0 0 0 0 0 0 0` (alternativ beliebige NZB mit SABnzbd laden)
 5. Dies erstellt eine `crowdclient-config.json` mit Standardeinstellungen
 
-### 3. Basis-Konfiguration
+### Docker-Mod
+Falls du SABnzbd in Docker mit dem linuxserver.io Image nutzt, kannst du den CrowdClient und alle Abhängigkeiten ganz einfach über einen Docker-Mod installieren.
+
+Füge dazu in den SABnzbd Docker-Argumenten die Umgebungsvariable `DOCKER_MODS=ghcr.io/pixelhunterx/docker-mods:sabnzbd-crowdclient` hinzu.
+Falls du bereits andere Mods nutzt, kannst du diese auch kombinieren, z.B. `DOCKER_MODS=ghcr.io/pixelhunterx/docker-mods:sabnzbd-crowdclient|linuxserver/mods:dummy` (separiert durch `|`).
+
+Außerdem solltest du die Umgebungsvariable `SCRIPT_DIR` definieren, z.B. `SCRIPT_DIR="/path/to/your/scripts"`, um den Ordner für die CrowdClient Binary und Config festzulegen.
+Dafür solltest du dein SABnzbd Skript-Verzeichnis verwenden, in dem ggf. auch andere Post-Processing-Skripte liegen (muss ggf. noch in den SABnzbd Einstellungen definiert werden).
+
+**Hinweis: Hier muss der Pfad aus dem Container verwendet werden, nicht der Host-Pfad.**
+Falls nicht gesetzt, wird standardmäßig `/data/scripts` verwendet.
+
+### Basis-Konfiguration
 Bearbeite die `crowdclient-config.json`:
 
 ```json
@@ -89,7 +102,7 @@ Dazu `"enabled"` auf `true` setzen und die `base_url` auf den korrekten Host kon
   }
 }
 ```
-⚠️ **Unabhängig von der Art der Installation (sowohl Docker als auch nativ) muss zwingend die Umgebungsvariable `SETTINGS__EnableChangedTitleCache=true` gesetzt werden, 
+⚠️ **Unabhängig von der Art der Installation (sowohl Docker als auch nativ) muss beim UmlautAdaptarr zwingend die Umgebungsvariable `SETTINGS__EnableChangedTitleCache=true` gesetzt werden, 
 damit die umbenannten Releasenamen temporär gespeichert und über die API bereitgestellt werden können.**
 
 #### Docker Nutzer:
@@ -156,11 +169,7 @@ Bei Docker bitte das korrekte Pfad-Mapping beachten (nicht die Pfade vom Host ve
 - Stelle sicher, dass du MediaInfo-CLI installiert hast und der Pfad in der `crowdclient-config.json` korrekt gesetzt ist, insofern es sich nicht um das Standard-Installationsverzeichnis handelt.
 Alternativ muss MediaInfo im PATH vorhanden sein oder im gleichen Verzeichnis wie der CrowdClient liegen.
 
-**2. **
-- Verwende `172.17.0.1:5005` statt `localhost:5005`
-- Oder nutze `--network host` beim Container-Start
-
-**3. UmlautAdaptarr check failed**
+**2. UmlautAdaptarr check failed**
 - Wenn die Fehlermeldung `❌ UmlautAdaptarr check failed: UmlautAdaptarr API error (status 501): Set SETTINGS__EnableChangedTitleCache to true to use this endpoint.` auftritt,
 fehlt die Umgebungsvariable `SETTINGS__EnableChangedTitleCache=true` in deiner UmlautAdaptarr-Installation. Du musst diese Variable setzen, damit die API korrekt funktioniert.
 
@@ -168,17 +177,18 @@ fehlt die Umgebungsvariable `SETTINGS__EnableChangedTitleCache=true` in deiner U
 ist der UmlautAdaptarr nicht erreichbar. Überprüfe die URL und den Port in der `crowdclient-config.json` und stelle sicher, dass der Dienst läuft. Beachte auch die oben genannten Hinweise für Docker.
 
 
-**4. NFO/MediaInfo/File List Upload failed**
+**3. NFO/MediaInfo/File List Upload failed**
 - Falls die folgende Fehlermeldung `❌ <type> upload failed:{"message":"You have already submitted a file of this type to this release for this alias.","errorCode":"","details":null}`
 auftritt, bedeutet dies, dass bereits eine NFO oder MediaInfo-Datei für dieses Release hochgeladen wurde. CrowdNFO erlaubt nur einen Upload pro Dateityp pro Release.
 
-**5. API-Schlüssel Fehler**
+**4. API-Schlüssel Fehler**
 - Überprüfe den CrowdNFO API-Key in der Config
 - Stelle sicher, dass der Key aktiv ist
 
-**4. Große Dateien (Hash-Berechnung)**
-- Setze `max_hash_file_size` Limit
-- Oder deaktiviere mit `"max_hash_file_size": "0"`
+**5. Das Post Processing dauert bei großen Dateien sehr lang**
+- Setze ein `max_hash_file_size` Limit, um die SHA256-Berechnung für große Dateien zu deaktivieren oder zu begrenzen.
+  - Beispiel: `"max_hash_file_size": "10GB"` für ein Limit von 10GB
+  - Oder deaktiviere mit `"max_hash_file_size": "0"` (keine Hash-Berechnung)
 
 ### Logs analysieren
 - ✅ = Erfolgreich
@@ -201,4 +211,4 @@ auftritt, bedeutet dies, dass bereits eine NFO oder MediaInfo-Datei für dieses 
 
 ## 🤝 Support
 
-Bei Problemen oder Feature-Requests erstelle ein Issue im Repository oder im #crowdnfo Channel bei Discord schreiben.
+Bei Problemen oder Feature-Requests erstelle ein Issue im Repository oder einfach im #crowdnfo Channel bei Discord schreiben. :)
