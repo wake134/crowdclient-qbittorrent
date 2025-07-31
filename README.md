@@ -39,7 +39,9 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 1. Lade die entsprechende Binärdatei für dein System herunter und kopiere sie in dein SABnzbd Skript-Verzeichnis
 2. Mache sie ausführbar: `chmod +x crowdclient-sabnzbd-linux-amd64` (Linux/Mac)
 3. CrowdClient in SABnzbd den gewünschten Kategorien zuordnen (ggf. muss vorher noch unter Settings > Folders das Skript-Verzeichnis festgelegt werden)
-4. Führe einmalig aus: `./crowdclient-sabnzbd 0 0 0 0 0 0 0` (alternativ beliebige NZB mit SABnzbd laden)
+   - Es wird **nicht empfohlen**, den CrowdClient für ausnahmslos **alle Downloads** zu aktivieren, sondern nach Möglichkeit nur für die Kategorien, die CrowdNFO unterstützt.
+   Zudem wollen wir Müll und Spam vermeiden. :)
+4. Führe einmalig im Terminal aus: `./crowdclient-sabnzbd-xxx-xxx 0 0 0 0 0 0 0` (alternativ beliebige NZB mit SABnzbd laden)
 5. Dies erstellt eine `crowdclient-config.json` mit Standardeinstellungen
 
 ### Docker-Mod
@@ -146,12 +148,10 @@ Führe zusätzliche Scripts nach CrowdNFO aus:
       "command": "/path/to/script.sh",
       "arguments": ["--custom", "arg"]
     },
-    "categories": {
-      "movies": {
-        "enabled": true,
-        "command": "/path/to/movie-script.sh",
-        "arguments": []
-      }
+    "movies": {
+      "enabled": true,
+      "command": "/path/to/movie-script.sh",
+      "arguments": []
     }
   }
 }
