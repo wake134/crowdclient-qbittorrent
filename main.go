@@ -384,17 +384,17 @@ func runPostProcessCommand(configType string, cmd PostProcessCommand) {
 
 	log.Printf("🔧 Running %s post-processing: %s", configType, cmd.Command)
 
-	// Build command arguments - start with original SABnzbd arguments
+	// Build command arguments
 	args := make([]string, 0)
+
+	// Add additional arguments from config if specified (e.g., script path for python3)
+	if len(cmd.Arguments) > 0 {
+		args = append(args, cmd.Arguments...)
+	}
 
 	// Add original SABnzbd arguments (skip program name at index 0)
 	if len(os.Args) > 1 {
 		args = append(args, os.Args[1:]...)
-	}
-
-	// Add additional arguments from config if specified
-	if len(cmd.Arguments) > 0 {
-		args = append(args, cmd.Arguments...)
 	}
 
 	// Execute the command
