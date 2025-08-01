@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -305,8 +306,15 @@ func checkSABnzbdConfig(sabApiUrl, sabApiKey string) error {
 			baseUrl, sabApiKey)
 	}
 
-	// Make API request
-	client := &http.Client{Timeout: 10 * time.Second}
+	// Create HTTP client with TLS configuration that accepts self-signed certificates
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: tr,
+	}
+
 	resp, err := client.Get(apiUrl)
 	if err != nil {
 		log.Printf("⚠️ Failed to connect to SABnzbd API, skipping deobfuscate check: %v", err)
