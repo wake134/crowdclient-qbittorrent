@@ -111,6 +111,15 @@ func main() {
 
 	// Check UmlautAdaptarr for title changes
 	originalTitle, err := checkUmlautadaptarr(config, cleanJobName)
+	if err != nil {
+		log.Printf("❌ UmlautAdaptarr check failed: %v", err)
+		log.Printf("⚠️ Skipping CrowdNFO processing, but continuing with post-processing scripts...")
+
+		// Execute post-processing commands even if UmlautAdaptarr fails
+		executePostProcessing(config, sabnzbdCategory)
+		return
+	}
+
 	// Use original title if Umlautadaptarr made changes
 	if originalTitle != "" {
 		log.Printf("ℹ️ Using original title from UmlautAdaptarr: %s", originalTitle)

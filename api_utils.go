@@ -448,7 +448,7 @@ func checkUmlautadaptarr(config *Config, releaseName string) (string, error) {
 				return "", fmt.Errorf("failed to connect to UmlautAdaptarr API: %v\n\n💡 Make sure UmlautAdaptarr is running on the configured URL", err)
 			}
 		}
-		return "", fmt.Errorf("failed to connect to UmlautAdaptarr API: %v", err)
+		return "", fmt.Errorf("failed to connect to UmlautAdaptarr API: %v\n\n💡 Make sure UmlautAdaptarr is running on the configured URL", err)
 	}
 	defer resp.Body.Close()
 
