@@ -55,23 +55,23 @@ jobs:
         mkdir -p dist
 
         # Build flags with version information
-        LDFLAGS="-s -w -X main.Version=${{ steps.version.outputs.VERSION }} -X main.GitCommit=${{ steps.version.outputs.COMMIT }} -X main.BuildDate=${{ steps.version.outputs.BUILD_DATE }} -extldflags '-static' -trimpath"
+        LDFLAGS="-s -w -X main.Version=${{ steps.version.outputs.VERSION }} -X main.GitCommit=${{ steps.version.outputs.COMMIT }} -X main.BuildDate=${{ steps.version.outputs.BUILD_DATE }} -extldflags '-static'"
 
         # Build for multiple platforms
         echo "Building for Linux AMD64..."
-        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-linux-amd64 .
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-linux-amd64 .
 
         echo "Building for Linux ARM64..."
-        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-linux-arm64 .
+        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-linux-arm64 .
 
         echo "Building for Windows AMD64..."
-        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-windows-amd64.exe .
+        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-windows-amd64.exe .
 
         echo "Building for macOS AMD64..."
-        GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-darwin-amd64 .
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-darwin-amd64 .
 
         echo "Building for macOS ARM64..."
-        GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-darwin-arm64 .
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$LDFLAGS" -o dist/crowdclient-qbittorrent-darwin-arm64 .
 
     - name: Create release notes
       run: |
@@ -80,6 +80,7 @@ jobs:
         - **Version**: ${{ steps.version.outputs.VERSION }}
         - **Commit**: ${{ steps.version.outputs.COMMIT }}
         - **Build Date**: ${{ steps.version.outputs.BUILD_DATE }}
+        EOF
 
     - name: Create Release
       if: steps.version.outputs.IS_RELEASE == 'true'
