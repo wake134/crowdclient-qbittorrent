@@ -99,7 +99,7 @@ jobs:
       if: steps.version.outputs.IS_RELEASE == 'false'
       uses: actions/upload-artifact@v4
       with:
-        name: crowdclient-sabnzbd-${{ steps.version.outputs.VERSION }}
+        name: crowdclient-qbittorrent-${{ steps.version.outputs.VERSION }}
         path: |
           dist/*
           release_notes.md
