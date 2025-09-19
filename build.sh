@@ -10,7 +10,7 @@ VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "v${MANUAL_VE
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "manual-build")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-echo "Building CrowdNFO SABnzbd Post-Processor ${VERSION}"
+echo "Building CrowdNFO qBittorrent Post-Processor ${VERSION}"
 echo "Git Commit: ${GIT_COMMIT}"
 echo "Build Date: ${BUILD_DATE}"
 
@@ -21,23 +21,23 @@ echo "Building statically linked binaries for all platforms..."
 
 # Build for Linux AMD64 (main binary)
 echo "Building for Linux AMD64..."
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-sabnzbd-linux-amd64 .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-qbittorrent-linux-amd64 .
 
 # Build for Linux ARM64
 echo "Building for Linux ARM64..."
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-sabnzbd-linux-arm64 .
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-qbittorrent-linux-arm64 .
 
 # Build for macOS AMD64
 echo "Building for macOS AMD64..."
-CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-sabnzbd-darwin-amd64 .
+CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-qbittorrent-darwin-amd64 .
 
 # Build for macOS ARM64 (Apple Silicon)
 echo "Building for macOS ARM64..."
-CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-sabnzbd-darwin-arm64 .
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-qbittorrent-darwin-arm64 .
 
 # Build for Windows AMD64
 echo "Building for Windows AMD64..."
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-sabnzbd-windows-amd64.exe .
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -a -ldflags="${LDFLAGS}" -o crowdclient-qbittorrent-windows-amd64.exe .
 
 echo ""
 echo "✅ Build completed successfully!"

@@ -1,4 +1,4 @@
-module sabnzbd-postprocessor
+module qbittorrent-postprocessor
 
 go 1.21
 

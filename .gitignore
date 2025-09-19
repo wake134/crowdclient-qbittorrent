@@ -1,8 +1,7 @@
 archive/
-crowdclient-sabnzbd*
+crowdclient-qbittorrent*
 test.py
 config.json
 crowdclient-config.json
-sabnzbd-postprocessor
 test-build
 .idea/

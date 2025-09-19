@@ -25,6 +25,20 @@ type SABConfigResponse struct {
 	} `json:"config"`
 }
 
+// createHTTPClient creates an HTTP client with TLS configuration based on the verify_ssl setting
+func createHTTPClient(config *Config, timeout time.Duration) *http.Client {
+	client := &http.Client{Timeout: timeout}
+	
+	if !config.VerifySSL {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client.Transport = tr
+	}
+	
+	return client
+}
+
 func uploadToCrowdNFO(config *Config, releaseName, sabnzbdCategory, hash, finalDir string, mediaInfoJSON []byte, nfoFile, archiveDir string) error {
 	var uploadErrors []string
 	var successCount int
@@ -235,7 +249,7 @@ func uploadFile(config *Config, releaseName, fileType, originalFileName string, 
 	//}
 
 	// Send request
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := createHTTPClient(config, 30*time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -387,7 +401,7 @@ func uploadFileList(config *Config, fileListRequest FileListRequest) error {
 	//log.Printf("   Content-Length: %d bytes", len(jsonData))
 
 	// Send request
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := createHTTPClient(config, 30*time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -445,7 +459,7 @@ func checkUmlautadaptarr(config *Config, releaseName string) (string, error) {
 	apiURL := fmt.Sprintf("%s/titlelookup?changedTitle=%s", baseURL, encodedReleaseName)
 
 	// Create HTTP request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := createHTTPClient(config, 10*time.Second)
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		// Check if this looks like a Docker networking issue

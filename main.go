@@ -17,6 +17,14 @@ var (
 	BuildDate = "unknown"
 )
 
+// QBittorrentArgs holds the arguments passed from qBittorrent
+type QBittorrentArgs struct {
+	TorrentName string // %N
+	ContentPath string // %F  
+	Category    string // %L
+	InfoHash    string // %I
+}
+
 // Global variable to track update availability
 var (
 	updateAvailable = false
@@ -61,7 +69,7 @@ func getCleanVersion() string {
 
 // getUserAgent returns the User-Agent string for API requests
 func getUserAgent() string {
-	return fmt.Sprintf("crowdclient-SABnzbd/%s", getCleanVersion())
+	return fmt.Sprintf("crowdclient-qBittorrent/%s", getCleanVersion())
 }
 
 func main() {
@@ -69,44 +77,43 @@ func main() {
 
 	// Check for version flag
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Printf("CrowdNFO SABnzbd Post-Processor %s\n", Version)
+		fmt.Printf("CrowdNFO qBittorrent Post-Processor %s\n", Version)
 		fmt.Printf("Git Commit: %s\n", GitCommit)
 		fmt.Printf("Build Date: %s\n", BuildDate)
 		return
 	}
 
-	if len(os.Args) < 8 {
-		log.Fatal("Insufficient arguments. Expected 7 arguments from SABnzbd.")
+	if len(os.Args) < 5 {
+		log.Fatal("Insufficient arguments. Expected 4 arguments from qBittorrent: torrent_name content_path category info_hash")
 	}
 
-	// Parse SABnzbd arguments
-	finalDir := os.Args[1]
-	// originalNZB := os.Args[2]
-	cleanJobName := os.Args[3]
-	// indexerID := os.Args[4]
-	sabnzbdCategory := os.Args[5]
-	// group := os.Args[6]
-	status := os.Args[7]
+	// Parse qBittorrent arguments
+	cleanJobName := os.Args[1]  // %N - Torrent name
+	finalDir := os.Args[2]      // %F - Content path
+	qbtCategory := os.Args[3]   // %L - Category
+	infoHash := os.Args[4]      // %I - Info hash
 
-	// Get SABnzbd API credentials from environment
-	sabApiUrl := os.Getenv("SAB_API_URL")
-	sabApiKey := os.Getenv("SAB_API_KEY")
-
-	// Check SABnzbd deobfuscate_final_filenames setting
-	if err := checkSABnzbdConfig(sabApiUrl, sabApiKey); err != nil {
-		log.Fatal("❌ ", err)
-	}
-
-	// Only process if status is OK (0)
-	if status != "0" {
-		log.Printf("Job failed with status %s, skipping processing", status)
-		return
+	// Store qBittorrent arguments for post-processing
+	qbtArgs := QBittorrentArgs{
+		TorrentName: cleanJobName,
+		ContentPath: finalDir,
+		Category:    qbtCategory,
+		InfoHash:    infoHash,
 	}
 
 	// Load configuration first
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatal("❌ Failed to load configuration: ", err)
+	}
+
+	// Check if category should be excluded from processing
+	if isCategoryExcluded(config, qbtCategory) {
+		log.Printf("ℹ️ Category '%s' is excluded from processing, skipping CrowdNFO upload", qbtCategory)
+		
+		// Execute post-processing commands even if category is excluded
+		executePostProcessing(config, qbtArgs)
+		return
 	}
 
 	// Check UmlautAdaptarr for title changes
@@ -116,7 +123,7 @@ func main() {
 		log.Printf("⚠️ Skipping CrowdNFO processing, but continuing with post-processing scripts...")
 
 		// Execute post-processing commands even if UmlautAdaptarr fails
-		executePostProcessing(config, sabnzbdCategory)
+		executePostProcessing(config, qbtArgs)
 		return
 	}
 
@@ -139,7 +146,7 @@ func main() {
 		} else {
 			log.Printf("📦 Detected season pack via file count (≥3 episodes): %s", cleanJobName)
 		}
-		if err := processSeasonPack(config, finalDir, cleanJobName, sabnzbdCategory, archiveDir); err != nil {
+		if err := processSeasonPack(config, finalDir, cleanJobName, qbtCategory, archiveDir, qbtArgs); err != nil {
 			log.Printf("❌ Season pack processing failed: %v", err)
 			return
 		}
@@ -206,7 +213,7 @@ func main() {
 	}
 
 	// Upload to CrowdNFO API (works with or without media files/NFO)
-	if err := uploadToCrowdNFO(config, cleanJobName, sabnzbdCategory, hash, finalDir, mediaInfoJSON, nfoFile, archiveDir); err != nil {
+	if err := uploadToCrowdNFO(config, cleanJobName, qbtCategory, hash, finalDir, mediaInfoJSON, nfoFile, archiveDir); err != nil {
 		errStr := err.Error()
 		if strings.HasPrefix(errStr, "partial_failure:") {
 			log.Printf("⚠️ Upload completed with partial success: %s", strings.TrimPrefix(errStr, "partial_failure:"))
@@ -223,7 +230,7 @@ func main() {
 	displayUpdateNotification()
 
 	// Execute post-processing commands (always run, regardless of upload success)
-	executePostProcessing(config, sabnzbdCategory)
+	executePostProcessing(config, qbtArgs)
 }
 
 // displayUpdateNotification shows update information if available
@@ -274,7 +281,7 @@ func isSeasonPackFallback(finalDir string) bool {
 }
 
 // processSeasonPack handles the processing of season packs
-func processSeasonPack(config *Config, finalDir, cleanJobName, sabnzbdCategory, archiveDir string) error {
+func processSeasonPack(config *Config, finalDir, cleanJobName, qbtCategory, archiveDir string, qbtArgs QBittorrentArgs) error {
 	// Check if this is actually a season pack by counting video files
 	if !isSeasonPackFallback(finalDir) {
 		log.Printf("ℹ️ Less than 3 video files found, processing as single release")
@@ -346,7 +353,7 @@ func processSeasonPack(config *Config, finalDir, cleanJobName, sabnzbdCategory, 
 		}
 
 		// Upload this episode to CrowdNFO API with file list
-		err = uploadEpisodeToCrowdNFO(config, episode, sabnzbdCategory, hash, mediaInfoJSON, archiveDir)
+		err = uploadEpisodeToCrowdNFO(config, episode, qbtCategory, hash, mediaInfoJSON, archiveDir)
 		if err != nil {
 			// Don't log additional error message - the upload function already logged the details
 			continue
@@ -358,35 +365,35 @@ func processSeasonPack(config *Config, finalDir, cleanJobName, sabnzbdCategory, 
 	log.Printf("✅ Season pack completed: %d/%d episodes successful", successCount, len(episodes))
 
 	// Execute post-processing commands for season packs
-	executePostProcessing(config, sabnzbdCategory)
+	executePostProcessing(config, qbtArgs)
 
 	return nil
 }
 
 // executePostProcessing runs post-processing commands based on configuration
-func executePostProcessing(config *Config, sabnzbdCategory string) {
+func executePostProcessing(config *Config, qbtArgs QBittorrentArgs) {
 	if config.PostProcessing.Global.Enabled {
-		runPostProcessCommand("global", config.PostProcessing.Global)
+		runPostProcessCommand("global", config.PostProcessing.Global, qbtArgs)
 	}
 
 	// Check for category-specific post-processing
 	if config.PostProcessing.Categories != nil {
-		// First try the exact SABnzbd category
-		if cmd, exists := config.PostProcessing.Categories[sabnzbdCategory]; exists && cmd.Enabled {
-			runPostProcessCommand(fmt.Sprintf("category '%s'", sabnzbdCategory), cmd)
+		// First try the exact qBittorrent category
+		if cmd, exists := config.PostProcessing.Categories[qbtArgs.Category]; exists && cmd.Enabled {
+			runPostProcessCommand(fmt.Sprintf("category '%s'", qbtArgs.Category), cmd, qbtArgs)
 			return
 		}
 
 		// Try lowercase version
-		if cmd, exists := config.PostProcessing.Categories[strings.ToLower(sabnzbdCategory)]; exists && cmd.Enabled {
-			runPostProcessCommand(fmt.Sprintf("category '%s'", strings.ToLower(sabnzbdCategory)), cmd)
+		if cmd, exists := config.PostProcessing.Categories[strings.ToLower(qbtArgs.Category)]; exists && cmd.Enabled {
+			runPostProcessCommand(fmt.Sprintf("category '%s'", strings.ToLower(qbtArgs.Category)), cmd, qbtArgs)
 			return
 		}
 	}
 }
 
-// runPostProcessCommand executes a post-processing command with all original arguments and environment
-func runPostProcessCommand(configType string, cmd PostProcessCommand) {
+// runPostProcessCommand executes a post-processing command with qBittorrent arguments and placeholders
+func runPostProcessCommand(configType string, cmd PostProcessCommand, qbtArgs QBittorrentArgs) {
 	if cmd.Command == "" {
 		return
 	}
@@ -396,21 +403,28 @@ func runPostProcessCommand(configType string, cmd PostProcessCommand) {
 	// Build command arguments
 	args := make([]string, 0)
 
-	// Add additional arguments from config if specified (e.g., script path for python3)
+	// Add additional arguments from config if specified, with placeholder substitution
 	if len(cmd.Arguments) > 0 {
-		args = append(args, cmd.Arguments...)
-	}
-
-	// Add original SABnzbd arguments (skip program name at index 0)
-	if len(os.Args) > 1 {
-		args = append(args, os.Args[1:]...)
+		for _, arg := range cmd.Arguments {
+			// Replace qBittorrent placeholders
+			arg = strings.ReplaceAll(arg, "%N", qbtArgs.TorrentName)
+			arg = strings.ReplaceAll(arg, "%F", qbtArgs.ContentPath)
+			arg = strings.ReplaceAll(arg, "%L", qbtArgs.Category)
+			arg = strings.ReplaceAll(arg, "%I", qbtArgs.InfoHash)
+			args = append(args, arg)
+		}
 	}
 
 	// Execute the command
 	execCmd := exec.Command(cmd.Command, args...)
 
-	// Pass through all environment variables
-	execCmd.Env = os.Environ()
+	// Pass through all environment variables and add qBittorrent-specific ones
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("QBT_TORRENT_NAME=%s", qbtArgs.TorrentName))
+	env = append(env, fmt.Sprintf("QBT_CONTENT_PATH=%s", qbtArgs.ContentPath))
+	env = append(env, fmt.Sprintf("QBT_CATEGORY=%s", qbtArgs.Category))
+	env = append(env, fmt.Sprintf("QBT_INFO_HASH=%s", qbtArgs.InfoHash))
+	execCmd.Env = env
 
 	// Set working directory to current directory
 	execCmd.Dir = getCurrentDir()

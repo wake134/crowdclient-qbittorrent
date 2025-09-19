@@ -11,13 +11,15 @@ import (
 )
 
 type Config struct {
-	APIKey           string               `json:"api_key"`
-	BaseURL          string               `json:"base_url"`
-	MediaInfoPath    string               `json:"mediainfo_path"`
-	MaxHashFileSize  string               `json:"max_hash_file_size"`
-	CategoryMappings map[string][]string  `json:"category_mappings,omitempty"`
-	PostProcessing   PostProcessingConfig `json:"post_processing"`
-	Umlautadaptarr   UmlautadaptarrConfig `json:"umlautadaptarr"`
+	APIKey             string               `json:"api_key"`
+	BaseURL            string               `json:"base_url"`
+	MediaInfoPath      string               `json:"mediainfo_path"`
+	MaxHashFileSize    string               `json:"max_hash_file_size"`
+	VerifySSL          bool                 `json:"verify_ssl"`
+	CategoryMappings   map[string][]string  `json:"category_mappings,omitempty"`
+	ExcludedCategories []string             `json:"excluded_categories,omitempty"`
+	PostProcessing     PostProcessingConfig `json:"post_processing"`
+	Umlautadaptarr     UmlautadaptarrConfig `json:"umlautadaptarr"`
 }
 
 type PostProcessingConfig struct {
@@ -63,6 +65,7 @@ func loadConfig() (*Config, error) {
 			BaseURL:         "https://crowdnfo.net/api/releases",
 			MediaInfoPath:   "", // Optional - will be auto-detected if empty
 			MaxHashFileSize: "", // Optional - no limit by default, use "0" to disable, or "5GB"/"800MB" to set limit
+			VerifySSL:       true, // Verify SSL certificates by default
 			CategoryMappings: map[string][]string{
 				"Movies":     []string{"movies", "movie", "radarr", "film"},
 				"TV":         []string{"tv", "television", "sonarr", "series", "shows", "serien", "anime"},
@@ -73,6 +76,7 @@ func loadConfig() (*Config, error) {
 				"Books":      []string{"books", "ebooks", "epub"},
 				"Other":      []string{"other", "misc"},
 			},
+			ExcludedCategories: []string{}, // Categories to exclude from processing
 			PostProcessing: PostProcessingConfig{
 				Global: PostProcessCommand{
 					Command:   "",
@@ -183,6 +187,23 @@ func isValidCategory(category string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// isCategoryExcluded checks if a category should be excluded from processing
+// Uses case-insensitive matching against the excluded_categories list
+func isCategoryExcluded(config *Config, category string) bool {
+	if len(config.ExcludedCategories) == 0 {
+		return false
+	}
+
+	// Check if the category matches any excluded category (case-insensitive)
+	for _, excludedCategory := range config.ExcludedCategories {
+		if strings.EqualFold(category, excludedCategory) {
+			return true
+		}
+	}
+
 	return false
 }
 
