@@ -1,6 +1,6 @@
-# SABnzbd Post-Processor für CrowdNFO
+# qBittorrent Post-Processor für CrowdNFO
 
-Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInfo-Daten und File Lists zur CrowdNFO API hochlädt.
+Ein automatisches Post-Processing-Skript für qBittorrent, das NFO-Dateien, MediaInfo-Daten und File Lists zur CrowdNFO API hochlädt.
 
 ## 🚀 Features
 
@@ -25,7 +25,6 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 - ⚙️ **Post-Processing-Scripts**: Führe weitere Skripte nach dem CrowdNFO-Upload aus
 
 ## 📋 Voraussetzungen
-- **SABnzbd**: Deaktivierung der Entschleierung von Dateinamen in Settings > Switches > Post processing
 - **CrowdNFO API Key**: Registriere dich auf [CrowdNFO](https://crowdnfo.net) und generiere einen API-Key auf deinem [Profil](https://crowdnfo.net/profile/details).
 - **MediaInfo**: Installiere MediaInfo-CLI auf deinem System (die GUI-Version funktioniert dafür nicht!):
   - **Ubuntu/Debian**: `sudo apt-get install mediainfo`
@@ -36,22 +35,24 @@ Ein automatisches Post-Processing-Skript für SABnzbd, das NFO-Dateien, MediaInf
 ## 📦 Installation & Einrichtung
 
 ### Download & Setup (manuell)
-1. Lade die entsprechende Binärdatei für dein System herunter und kopiere sie in dein SABnzbd Skript-Verzeichnis
-2. Mache sie ausführbar: `chmod +x crowdclient-sabnzbd-linux-amd64` (Linux/Mac)
-3. CrowdClient in SABnzbd den gewünschten Kategorien zuordnen (ggf. muss vorher noch unter Settings > Folders das Skript-Verzeichnis festgelegt werden)
-   - Es wird **nicht empfohlen**, den CrowdClient für ausnahmslos **alle Downloads** zu aktivieren, sondern nach Möglichkeit nur für die Kategorien, die CrowdNFO unterstützt.
+1. Lade die entsprechende Binärdatei für dein System herunter und kopiere sie in ein geeignetes Verzeichnis
+2. Mache sie ausführbar: `chmod +x crowdclient-qbittorrent-linux-amd64` (Linux/Mac)
+3. CrowdClient in qBittorrent als External Program konfigurieren:
+   - Gehe zu Tools > Options > Downloads > Run external program on torrent finished
+   - Trage den Pfad zur crowdclient-qbittorrent Binary mit Parametern ein: `/pfad/zu/crowdclient-qbittorrent-linux-amd64 "%N" "%F" "%L" "%I" "%D" "%G" "%J" "%K" "%R" "%T" "%Z" "%C"`
+   - Es wird **nicht empfohlen**, den CrowdClient für ausnahmslos **alle Downloads** zu aktivieren, sondern nach Möglichkeit nur für entsprechende Kategorien zu nutzen.
    Zudem wollen wir Müll und Spam vermeiden. :)
-4. Führe einmalig im Terminal aus: `./crowdclient-sabnzbd-xxx-xxx 0 0 0 0 0 0 0` (alternativ beliebige NZB mit SABnzbd laden)
+4. Führe einmalig im Terminal aus: `./crowdclient-qbittorrent-linux-amd64 "test" "/tmp" "movies" "abc123" "/downloads" "" "" "123" "/tmp" "http://tracker.example.com" "1024" "1"` (alternativ beliebigen Torrent mit qBittorrent herunterladen)
 5. Dies erstellt eine `crowdclient-config.json` mit Standardeinstellungen
 
 ### Docker-Mod
-Falls du SABnzbd in Docker mit dem linuxserver.io Image nutzt, kannst du den CrowdClient und alle Abhängigkeiten ganz einfach über einen Docker-Mod installieren.
+Falls du qBittorrent in Docker mit dem linuxserver.io Image nutzt, kannst du den CrowdClient und alle Abhängigkeiten ganz einfach über einen Docker-Mod installieren.
 
-Füge dazu in den SABnzbd Docker-Argumenten die Umgebungsvariable `DOCKER_MODS=ghcr.io/pixelhunterx/docker-mods:sabnzbd-crowdclient` hinzu.
-Falls du bereits andere Mods nutzt, kannst du diese auch kombinieren, z.B. `DOCKER_MODS=ghcr.io/pixelhunterx/docker-mods:sabnzbd-crowdclient|linuxserver/mods:dummy` (separiert durch `|`).
+Füge dazu in den qBittorrent Docker-Argumenten die Umgebungsvariable `DOCKER_MODS=ghcr.io/wake134/docker-mods:qbittorrent-crowdclient` hinzu.
+Falls du bereits andere Mods nutzt, kannst du diese auch kombinieren, z.B. `DOCKER_MODS=ghcr.io/wake134/docker-mods:qbittorrent-crowdclient|linuxserver/mods:dummy` (separiert durch `|`).
 
 Außerdem solltest du die Umgebungsvariable `SCRIPT_DIR` definieren, z.B. `SCRIPT_DIR="/path/to/your/scripts"`, um den Ordner für die CrowdClient Binary und Config festzulegen.
-Dafür solltest du dein SABnzbd Skript-Verzeichnis verwenden, in dem ggf. auch andere Post-Processing-Skripte liegen (muss ggf. noch in den SABnzbd Einstellungen definiert werden).
+Dafür solltest du ein geeignetes Verzeichnis verwenden, in dem ggf. auch andere Post-Processing-Skripte liegen.
 
 **Hinweis: Hier muss der Pfad aus dem Container verwendet werden, nicht der Host-Pfad.**
 Falls nicht gesetzt, wird standardmäßig `/data/scripts` verwendet.
@@ -65,6 +66,7 @@ Bearbeite die `crowdclient-config.json`:
   "base_url": "https://crowdnfo.net/api/releases",
   "mediainfo_path": "",
   "max_hash_file_size": "",
+  "verify_ssl": true,
   "category_mappings": {
     "Movies": ["movies", "movie", "radarr", "film"],
     "TV": ["tv", "television", "sonarr", "series", "shows", "serien"],
@@ -75,6 +77,7 @@ Bearbeite die `crowdclient-config.json`:
     "Books": ["books", "ebooks", "epub"],
     "Other": ["other", "misc"]
   },
+  "excluded_categories": ["cross-seed"],
   "post_processing": {
     "global": {
       "enabled": false,
@@ -92,6 +95,26 @@ Bearbeite die `crowdclient-config.json`:
 Damit das Skript funktioniert, musst du deinen CrowdNFO API-Key in der `crowdclient-config.json` eintragen. Diesen findest du in deinem [Profil](https://crowdnfo.net/profile/details).
 
 ## 🔧 Erweiterte Konfiguration
+
+### SSL-Verifikation
+Kontrolle der SSL-Zertifikatsprüfung für API-Anfragen:
+
+```json
+{
+  "verify_ssl": false    // Deaktiviert SSL-Verifikation (das aktuelle Cloudflare Zertifikat macht teils Probleme)
+}
+```
+Standardmäßig ist die SSL-Verifikation aktiviert (`true`). Setze auf `false`, um self-signed Zertifikate zu akzeptieren.
+
+### Kategorie-Ausschluss
+Kategorien von der CrowdNFO-Verarbeitung ausschließen:
+
+```json
+{
+  "excluded_categories": ["cross-seed"]
+}
+```
+Torrents aus diesen Kategorien werden übersprungen, aber Post-Processing-Skripte werden trotzdem ausgeführt.
 
 ### UmlautAdaptarr Integration
 Falls der UmlautAdaptarr verwendet wird, sollte unbedingt der UmlautAdaptarr in der crowdclient-config.json des CrowdClients aktiviert werden, da sonst die falschen (geänderten) Releasenamen verarbeitet werden.
@@ -146,20 +169,32 @@ Führe zusätzliche Scripts nach CrowdNFO aus:
     "global": {
       "enabled": true,
       "command": "/path/to/script.sh",
-      "arguments": ["--custom", "arg"]
+      "arguments": ["--torrent", "%N", "--path", "%F", "--category", "%L", "--hash", "%I"]
     },
     "categories": {
       "movies": {
         "enabled": true,
         "command": "/path/to/movie-script.sh",
-        "arguments": []
+        "arguments": ["%N", "%F", "%L", "%I", "%D", "%T", "%Z"]
       }
     }
   }
 }
 ```
-Da der CrowdClient ggf. bereits vorhandene Post-Processing-Skripte in SABnzbd ersetzt, können in der Config entweder global oder je Kategorie 
-Post-Processing-Skripte definiert werden. Diese werden nach der CrowdNFO Verarbeitung ausgeführt. Es werden alle Parameter von SABnzbd an das Script übergeben, sowie auch die Umgebungsvariablen.
+Verfügbare qBittorrent-Platzhalter:
+- `%N` - Torrent Name
+- `%F` - Content Path (Pfad zu heruntergeladenen Dateien)
+- `%L` - Category (Kategorie)
+- `%I` - Info Hash v1
+- `%D` - Save Path (Speicherpfad)
+- `%G` - Tags (Torrent-Tags)
+- `%J` - Info Hash v2
+- `%K` - Torrent ID
+- `%R` - Root Path (Hauptverzeichnis)
+- `%T` - Tracker
+- `%Z` - Torrent Size (Größe in Bytes)
+- `%C` - Number of Files (Anzahl Dateien)
+Es werden alle Parameter von qBittorrent an das Script übergeben, sowie auch die Umgebungsvariablen.
 
 Bei Docker bitte das korrekte Pfad-Mapping beachten (nicht die Pfade vom Host verwenden).
 

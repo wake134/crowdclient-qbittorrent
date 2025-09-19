@@ -19,10 +19,18 @@ var (
 
 // QBittorrentArgs holds the arguments passed from qBittorrent
 type QBittorrentArgs struct {
-	TorrentName string // %N
-	ContentPath string // %F  
-	Category    string // %L
-	InfoHash    string // %I
+	TorrentName  string // %N - Torrent name
+	ContentPath  string // %F - Content path (path of the torrent files)
+	Category     string // %L - Category
+	InfoHash     string // %I - Info hash v1
+	SavePath     string // %D - Save path (same as root path for single file torrents)
+	Tags         string // %G - Tags (empty if untagged)
+	InfoHashV2   string // %J - Info hash v2 (empty if not available)
+	TorrentID    string // %K - Torrent ID
+	RootPath     string // %R - Root path (first torrent subdirectory path)
+	Tracker      string // %T - Tracker
+	TorrentSize  string // %Z - Torrent size (bytes)
+	NumberFiles  string // %C - Number of files
 }
 
 // Global variable to track update availability
@@ -83,22 +91,38 @@ func main() {
 		return
 	}
 
-	if len(os.Args) < 5 {
-		log.Fatal("Insufficient arguments. Expected 4 arguments from qBittorrent: torrent_name content_path category info_hash")
+	if len(os.Args) < 13 {
+		log.Fatal("Insufficient arguments. Expected 12 arguments from qBittorrent: torrent_name content_path category info_hash save_path tags info_hash_v2 torrent_id root_path tracker torrent_size number_files")
 	}
 
 	// Parse qBittorrent arguments
 	cleanJobName := os.Args[1]  // %N - Torrent name
 	finalDir := os.Args[2]      // %F - Content path
 	qbtCategory := os.Args[3]   // %L - Category
-	infoHash := os.Args[4]      // %I - Info hash
+	infoHash := os.Args[4]      // %I - Info hash v1
+	savePath := os.Args[5]      // %D - Save path
+	tags := os.Args[6]          // %G - Tags
+	infoHashV2 := os.Args[7]    // %J - Info hash v2
+	torrentID := os.Args[8]     // %K - Torrent ID
+	rootPath := os.Args[9]      // %R - Root path
+	tracker := os.Args[10]      // %T - Tracker
+	torrentSize := os.Args[11]  // %Z - Torrent size
+	numberFiles := os.Args[12]  // %C - Number of files
 
 	// Store qBittorrent arguments for post-processing
 	qbtArgs := QBittorrentArgs{
-		TorrentName: cleanJobName,
-		ContentPath: finalDir,
-		Category:    qbtCategory,
-		InfoHash:    infoHash,
+		TorrentName:  cleanJobName,
+		ContentPath:  finalDir,
+		Category:     qbtCategory,
+		InfoHash:     infoHash,
+		SavePath:     savePath,
+		Tags:         tags,
+		InfoHashV2:   infoHashV2,
+		TorrentID:    torrentID,
+		RootPath:     rootPath,
+		Tracker:      tracker,
+		TorrentSize:  torrentSize,
+		NumberFiles:  numberFiles,
 	}
 
 	// Load configuration first
@@ -411,6 +435,14 @@ func runPostProcessCommand(configType string, cmd PostProcessCommand, qbtArgs QB
 			arg = strings.ReplaceAll(arg, "%F", qbtArgs.ContentPath)
 			arg = strings.ReplaceAll(arg, "%L", qbtArgs.Category)
 			arg = strings.ReplaceAll(arg, "%I", qbtArgs.InfoHash)
+			arg = strings.ReplaceAll(arg, "%D", qbtArgs.SavePath)
+			arg = strings.ReplaceAll(arg, "%G", qbtArgs.Tags)
+			arg = strings.ReplaceAll(arg, "%J", qbtArgs.InfoHashV2)
+			arg = strings.ReplaceAll(arg, "%K", qbtArgs.TorrentID)
+			arg = strings.ReplaceAll(arg, "%R", qbtArgs.RootPath)
+			arg = strings.ReplaceAll(arg, "%T", qbtArgs.Tracker)
+			arg = strings.ReplaceAll(arg, "%Z", qbtArgs.TorrentSize)
+			arg = strings.ReplaceAll(arg, "%C", qbtArgs.NumberFiles)
 			args = append(args, arg)
 		}
 	}
@@ -424,6 +456,14 @@ func runPostProcessCommand(configType string, cmd PostProcessCommand, qbtArgs QB
 	env = append(env, fmt.Sprintf("QBT_CONTENT_PATH=%s", qbtArgs.ContentPath))
 	env = append(env, fmt.Sprintf("QBT_CATEGORY=%s", qbtArgs.Category))
 	env = append(env, fmt.Sprintf("QBT_INFO_HASH=%s", qbtArgs.InfoHash))
+	env = append(env, fmt.Sprintf("QBT_SAVE_PATH=%s", qbtArgs.SavePath))
+	env = append(env, fmt.Sprintf("QBT_TAGS=%s", qbtArgs.Tags))
+	env = append(env, fmt.Sprintf("QBT_INFO_HASH_V2=%s", qbtArgs.InfoHashV2))
+	env = append(env, fmt.Sprintf("QBT_TORRENT_ID=%s", qbtArgs.TorrentID))
+	env = append(env, fmt.Sprintf("QBT_ROOT_PATH=%s", qbtArgs.RootPath))
+	env = append(env, fmt.Sprintf("QBT_TRACKER=%s", qbtArgs.Tracker))
+	env = append(env, fmt.Sprintf("QBT_TORRENT_SIZE=%s", qbtArgs.TorrentSize))
+	env = append(env, fmt.Sprintf("QBT_NUMBER_FILES=%s", qbtArgs.NumberFiles))
 	execCmd.Env = env
 
 	// Set working directory to current directory
