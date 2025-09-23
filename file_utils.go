@@ -322,6 +322,12 @@ func createFileList(dir, releaseName string) ([]FileListEntry, error) {
 		// Use forward slashes for API compatibility
 		relPath = filepath.ToSlash(relPath)
 
+		// Handle edge case where relative path is "." - use just the filename
+		if relPath == "." {
+			relPath = filepath.Base(path)
+			log.Printf("⚠️ Fixed invalid file path '.' to '%s' for file: %s (baseDir: %s)", relPath, path, baseDir)
+		}
+
 		entries = append(entries, FileListEntry{
 			FilePath:      relPath,
 			FileSizeBytes: info.Size(),
@@ -337,6 +343,13 @@ func createFileList(dir, releaseName string) ([]FileListEntry, error) {
 func createEpisodeFileList(episodeInfo EpisodeInfo) ([]FileListEntry, error) {
 	// Get the parent directory (season pack directory)
 	seasonPackDir := filepath.Dir(episodeInfo.VideoFile.Dir)
+
+	// Safety check: if parent directory calculation results in root or invalid path,
+	// fallback to treating as single file
+	if seasonPackDir == "/" || seasonPackDir == "." || seasonPackDir == episodeInfo.VideoFile.Dir {
+		log.Printf("⚠️ Invalid season pack directory detected (%s), falling back to single file processing", seasonPackDir)
+		return createFileList(episodeInfo.VideoFile.Dir, episodeInfo.ReleaseName)
+	}
 
 	// Find all video files in the season pack to determine structure
 	allVideoFiles, err := findAllVideoFiles(seasonPackDir)
@@ -392,8 +405,15 @@ func findRelatedFiles(dir, videoBaseName, videoPath string) ([]FileListEntry, er
 		return nil, err
 	}
 
+	// Handle edge case where relative path is "." - use just the filename
+	videoRelPath = filepath.ToSlash(videoRelPath)
+	if videoRelPath == "." {
+		videoRelPath = filepath.Base(videoPath)
+		log.Printf("⚠️ Fixed invalid video file path '.' to '%s' for file: %s (baseDir: %s)", videoRelPath, videoPath, baseDir)
+	}
+
 	entries = append(entries, FileListEntry{
-		FilePath:      filepath.ToSlash(videoRelPath),
+		FilePath:      videoRelPath,
 		FileSizeBytes: videoInfo.Size(),
 	})
 
@@ -436,8 +456,15 @@ func findRelatedFiles(dir, videoBaseName, videoPath string) ([]FileListEntry, er
 				continue
 			}
 
+			// Handle edge case where relative path is "." - use just the filename
+			relPath = filepath.ToSlash(relPath)
+			if relPath == "." {
+				relPath = filepath.Base(filePath)
+				log.Printf("⚠️ Fixed invalid related file path '.' to '%s' for file: %s (baseDir: %s)", relPath, filePath, baseDir)
+			}
+
 			entries = append(entries, FileListEntry{
-				FilePath:      filepath.ToSlash(relPath),
+				FilePath:      relPath,
 				FileSizeBytes: info.Size(),
 			})
 		}
