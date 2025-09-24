@@ -236,8 +236,19 @@ func main() {
 		nfoFile = "" // Set empty string for upload function
 	}
 
+	// For single files, remove file extension from release name
+	releaseName := cleanJobName
+	if mediaFile != "" {
+		// Check if cleanJobName has the same extension as the media file
+		jobExt := strings.ToLower(filepath.Ext(cleanJobName))
+		mediaExt := strings.ToLower(filepath.Ext(mediaFile))
+		if jobExt != "" && jobExt == mediaExt {
+			releaseName = strings.TrimSuffix(cleanJobName, jobExt)
+		}
+	}
+
 	// Upload to CrowdNFO API (works with or without media files/NFO)
-	if err := uploadToCrowdNFO(config, cleanJobName, qbtCategory, hash, finalDir, mediaInfoJSON, nfoFile, archiveDir); err != nil {
+	if err := uploadToCrowdNFO(config, releaseName, qbtCategory, hash, finalDir, mediaInfoJSON, nfoFile, archiveDir); err != nil {
 		errStr := err.Error()
 		if strings.HasPrefix(errStr, "partial_failure:") {
 			log.Printf("⚠️ Upload completed with partial success: %s", strings.TrimPrefix(errStr, "partial_failure:"))

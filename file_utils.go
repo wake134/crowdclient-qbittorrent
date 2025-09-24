@@ -325,7 +325,6 @@ func createFileList(dir, releaseName string) ([]FileListEntry, error) {
 		// Handle edge case where relative path is "." - use just the filename
 		if relPath == "." {
 			relPath = filepath.Base(path)
-			log.Printf("⚠️ Fixed invalid file path '.' to '%s' for file: %s (baseDir: %s)", relPath, path, baseDir)
 		}
 
 		entries = append(entries, FileListEntry{
